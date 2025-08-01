@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "north-net": {
+      "enabled": true,
+      "command": "/Users/alice/dev/odata_mcp_net/bin/publish/osx-arm64/odata-mcp",
+      "args": [
+        "--service",
+        "https://services.odata.org/V2/Northwind/Northwind.svc/",
+        "--verbose"
+      ]
+    }
+  }
+}

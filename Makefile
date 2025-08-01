@@ -94,8 +94,14 @@ dist: publish-all
 	@echo ""
 	@echo "🎉 Release $(VERSION) packages ready!"
 
+# Install local binary for development
+install-local: publish-macos-arm64
+	@echo "Installing local binary for development..."
+	@cp $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME) ./$(PROJECT_NAME)
+	@echo "Local binary installed: ./$(PROJECT_NAME)"
+
 # Create a release with all binaries
-release: clean dist
+release: clean dist install-local
 	@echo "Release $(VERSION) created successfully!"
 	@echo "Files ready for GitHub release:"
 	@ls -1 $(DIST_DIR)/
@@ -121,3 +127,4 @@ help:
 	@echo "  restore        - Restore NuGet packages"
 	@echo "  run-northwind  - Run with Northwind test service"
 	@echo "  help           - Show this help message"
+	@echo "  install-local  - Install binary to project root for Claude Desktop"
