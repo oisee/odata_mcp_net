@@ -171,11 +171,7 @@ public class SimpleMcpServerV2
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error executing tool {ToolName}", name);
-            return new
-            {
-                error = ex.Message,
-                type = ex.GetType().Name
-            };
+            throw; // Let the transport layer handle the error with proper JSON-RPC structure
         }
     }
 

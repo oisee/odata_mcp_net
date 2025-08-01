@@ -33,10 +33,10 @@ public class SimpleStdioTransport
         try
         {
             await using var stdin = Console.OpenStandardInput();
-            using var reader = new StreamReader(stdin, Encoding.UTF8);
+            using var reader = new StreamReader(stdin, new UTF8Encoding(false)); // No BOM
             
             await using var stdout = Console.OpenStandardOutput();
-            using var writer = new StreamWriter(stdout, Encoding.UTF8) { AutoFlush = true };
+            using var writer = new StreamWriter(stdout, new UTF8Encoding(false)) { AutoFlush = true }; // No BOM
 
             while (!cancellationToken.IsCancellationRequested)
             {
