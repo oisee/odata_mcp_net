@@ -50,15 +50,17 @@ public class SimpleMcpServerV2
 
             return new
             {
+                capabilities = new
+                {
+                    prompts = new { listChanged = false },
+                    resources = new { listChanged = false, subscribe = false },
+                    tools = new { listChanged = true }
+                },
                 protocolVersion = "2024-11-05",
                 serverInfo = new
                 {
                     name = "odata-mcp",
                     version = "1.0.0"
-                },
-                capabilities = new
-                {
-                    tools = new { listChanged = true }
                 }
             };
         }
@@ -177,7 +179,7 @@ public class SimpleMcpServerV2
         }
     }
 
-    private async Task<object> GetServiceInfoAsync()
+    private Task<object> GetServiceInfoAsync()
     {
         if (_model == null) throw new InvalidOperationException("Model not initialized");
 
@@ -203,12 +205,12 @@ public class SimpleMcpServerV2
             }
         }
 
-        return new
+        return Task.FromResult<object>(new
         {
             serviceUrl = _config.ServiceUrl,
             version = _model.GetEdmVersion()?.ToString() ?? "Unknown",
             entitySets = entitySets
-        };
+        });
     }
 
     private async Task<object> ExecuteFilterAsync(string entityName, JsonElement args)

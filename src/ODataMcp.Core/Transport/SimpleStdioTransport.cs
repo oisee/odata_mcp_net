@@ -44,6 +44,7 @@ public class SimpleStdioTransport
                 if (line == null)
                     break;
 
+
                 try
                 {
                     var request = JsonSerializer.Deserialize<JsonRpcRequest>(line, _jsonOptions);
@@ -62,6 +63,7 @@ public class SimpleStdioTransport
                     _logger.LogError(ex, "Invalid JSON received");
                     var errorResponse = new JsonRpcResponse
                     {
+                        JsonRpc = "2.0",
                         Id = null,
                         Error = new JsonRpcError
                         {
@@ -69,7 +71,8 @@ public class SimpleStdioTransport
                             Message = "Parse error"
                         }
                     };
-                    await writer.WriteLineAsync(JsonSerializer.Serialize(errorResponse, _jsonOptions));
+                    var errorJson = JsonSerializer.Serialize(errorResponse, _jsonOptions);
+                    await writer.WriteLineAsync(errorJson);
                 }
                 catch (Exception ex)
                 {
@@ -98,6 +101,7 @@ public class SimpleStdioTransport
                     var initResult = await _server.InitializeAsync(cancellationToken);
                     return new JsonRpcResponse
                     {
+                        JsonRpc = "2.0",
                         Id = request.Id,
                         Result = initResult
                     };
@@ -106,9 +110,30 @@ public class SimpleStdioTransport
                     var tools = await _server.ListToolsAsync(cancellationToken);
                     return new JsonRpcResponse
                     {
+                        JsonRpc = "2.0",
                         Id = request.Id,
                         Result = tools
                     };
+
+                case "resources/list":
+                    return new JsonRpcResponse
+                    {
+                        JsonRpc = "2.0",
+                        Id = request.Id,
+                        Result = new { resources = new object[0] }
+                    };
+
+                case "prompts/list":
+                    return new JsonRpcResponse
+                    {
+                        JsonRpc = "2.0",
+                        Id = request.Id,
+                        Result = new { prompts = new object[0] }
+                    };
+
+                case "notifications/initialized":
+                    // Notifications don't get responses
+                    return null;
 
                 case "tools/call":
                     if (request.Params == null)
@@ -139,6 +164,7 @@ public class SimpleStdioTransport
                     
                     return new JsonRpcResponse
                     {
+                        JsonRpc = "2.0",
                         Id = request.Id,
                         Result = mcpResult
                     };
@@ -160,6 +186,7 @@ public class SimpleStdioTransport
     {
         return new JsonRpcResponse
         {
+            JsonRpc = "2.0",
             Id = id,
             Error = new JsonRpcError
             {
