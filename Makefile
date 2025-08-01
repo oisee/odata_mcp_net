@@ -5,6 +5,7 @@
 PROJECT_NAME = odata-mcp
 MAIN_PROJECT = src/ODataMcp/ODataMcp.csproj
 OUTPUT_DIR = bin/publish
+DIST_DIR = bin/dist
 VERSION = 1.0.0
 
 # Default target
@@ -19,7 +20,7 @@ build:
 clean:
 	@echo "Cleaning build artifacts..."
 	dotnet clean
-	rm -rf bin obj $(OUTPUT_DIR)
+	rm -rf bin obj $(OUTPUT_DIR) $(DIST_DIR)
 	find . -name "bin" -type d -exec rm -rf {} + 2>/dev/null || true
 	find . -name "obj" -type d -exec rm -rf {} + 2>/dev/null || true
 
@@ -36,13 +37,13 @@ publish-all: publish-windows publish-linux publish-macos
 # Publish for Windows
 publish-windows:
 	@echo "Publishing for Windows x64..."
-	dotnet publish $(MAIN_PROJECT) -c Release -r win-x64 --self-contained false -o $(OUTPUT_DIR)/win-x64
+	dotnet publish $(MAIN_PROJECT) -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o $(OUTPUT_DIR)/win-x64
 	@echo "Windows build complete: $(OUTPUT_DIR)/win-x64/$(PROJECT_NAME).exe"
 
 # Publish for Linux
 publish-linux:
 	@echo "Publishing for Linux x64..."
-	dotnet publish $(MAIN_PROJECT) -c Release -r linux-x64 --self-contained false -o $(OUTPUT_DIR)/linux-x64
+	dotnet publish $(MAIN_PROJECT) -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o $(OUTPUT_DIR)/linux-x64
 	@chmod +x $(OUTPUT_DIR)/linux-x64/$(PROJECT_NAME)
 	@echo "Linux build complete: $(OUTPUT_DIR)/linux-x64/$(PROJECT_NAME)"
 
@@ -51,13 +52,13 @@ publish-macos: publish-macos-x64 publish-macos-arm64
 
 publish-macos-x64:
 	@echo "Publishing for macOS x64 (Intel)..."
-	dotnet publish $(MAIN_PROJECT) -c Release -r osx-x64 --self-contained false -o $(OUTPUT_DIR)/osx-x64
+	dotnet publish $(MAIN_PROJECT) -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o $(OUTPUT_DIR)/osx-x64
 	@chmod +x $(OUTPUT_DIR)/osx-x64/$(PROJECT_NAME)
 	@echo "macOS Intel build complete: $(OUTPUT_DIR)/osx-x64/$(PROJECT_NAME)"
 
 publish-macos-arm64:
 	@echo "Publishing for macOS ARM64 (Apple Silicon)..."
-	dotnet publish $(MAIN_PROJECT) -c Release -r osx-arm64 --self-contained false -o $(OUTPUT_DIR)/osx-arm64
+	dotnet publish $(MAIN_PROJECT) -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o $(OUTPUT_DIR)/osx-arm64
 	@chmod +x $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME)
 	@echo "macOS Apple Silicon build complete: $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME)"
 
@@ -75,6 +76,30 @@ restore:
 run-northwind:
 	dotnet run --project $(MAIN_PROJECT) -- --service https://services.odata.org/V2/Northwind/Northwind.svc/
 
+# Create distribution packages
+dist: publish-all
+	@echo "Creating distribution packages..."
+	@mkdir -p $(DIST_DIR)
+	@echo "Packaging Windows x64..."
+	@cd $(OUTPUT_DIR)/win-x64 && zip -r ../../dist/$(PROJECT_NAME)-$(VERSION)-win-x64.zip .
+	@echo "Packaging Linux x64..."
+	@cd $(OUTPUT_DIR)/linux-x64 && tar -czf ../../dist/$(PROJECT_NAME)-$(VERSION)-linux-x64.tar.gz .
+	@echo "Packaging macOS x64..."
+	@cd $(OUTPUT_DIR)/osx-x64 && tar -czf ../../dist/$(PROJECT_NAME)-$(VERSION)-osx-x64.tar.gz .
+	@echo "Packaging macOS ARM64..."
+	@cd $(OUTPUT_DIR)/osx-arm64 && tar -czf ../../dist/$(PROJECT_NAME)-$(VERSION)-osx-arm64.tar.gz .
+	@echo ""
+	@echo "Distribution packages created:"
+	@ls -lh $(DIST_DIR)/
+	@echo ""
+	@echo "🎉 Release $(VERSION) packages ready!"
+
+# Create a release with all binaries
+release: clean dist
+	@echo "Release $(VERSION) created successfully!"
+	@echo "Files ready for GitHub release:"
+	@ls -1 $(DIST_DIR)/
+
 # Help
 help:
 	@echo "OData MCP .NET Makefile"
@@ -90,6 +115,8 @@ help:
 	@echo "  publish-windows - Publish for Windows x64"
 	@echo "  publish-linux  - Publish for Linux x64"
 	@echo "  publish-macos  - Publish for macOS (Intel and Apple Silicon)"
+	@echo "  dist           - Create distribution packages for all platforms"
+	@echo "  release        - Clean build and create release packages"
 	@echo "  dev            - Build and show help"
 	@echo "  restore        - Restore NuGet packages"
 	@echo "  run-northwind  - Run with Northwind test service"
