@@ -46,7 +46,9 @@ Download the appropriate binary for your platform:
 - **macOS Apple Silicon**: `odata-mcp-osx-arm64.tar.gz`
 - **Linux**: `odata-mcp-linux-x64.tar.gz`
 
-Extract and place the `odata-mcp` executable in your preferred location.
+Extract and place the executable in your preferred location:
+- **Windows**: Extract the .zip and use `odata-mcp.exe`
+- **macOS/Linux**: Extract the .tar.gz and make executable: `chmod +x odata-mcp`
 
 ### Option 2: Build from Source
 
@@ -64,6 +66,9 @@ make build
 
 # Or build for all platforms
 make publish-all
+
+# Windows users without make can use:
+# dotnet publish src/ODataMcp -c Release -r win-x64 --self-contained
 ```
 
 ## Usage
@@ -97,7 +102,8 @@ Add to your Claude Desktop configuration file:
 {
     "mcpServers": {
         "northwind": {
-            "command": "/path/to/odata-mcp",
+            "command": "C:\\path\\to\\odata-mcp.exe",  // Windows
+            // "command": "/path/to/odata-mcp",        // macOS/Linux
             "args": [
                 "--service",
                 "https://services.odata.org/V2/Northwind/Northwind.svc/",
@@ -316,13 +322,22 @@ make dist              # Creates .zip and .tar.gz files
 
 1. **Test with public service first:**
    ```bash
+   # macOS/Linux
    ./odata-mcp --service https://services.odata.org/V2/Northwind/Northwind.svc/ --trace
+   
+   # Windows
+   odata-mcp.exe --service https://services.odata.org/V2/Northwind/Northwind.svc/ --trace
    ```
 
 2. **Verify tools are generated:**
    ```bash
+   # macOS/Linux
    echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' | \
    ./odata-mcp --service https://services.odata.org/V2/Northwind/Northwind.svc/
+   
+   # Windows PowerShell
+   echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' | `
+   .\odata-mcp.exe --service https://services.odata.org/V2/Northwind/Northwind.svc/
    ```
 
 3. **Check Claude Desktop integration:**
