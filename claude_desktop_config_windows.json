@@ -1,0 +1,38 @@
+{
+    "mcpServers": {
+        "northwind-v2": {
+            "command": "C:\\tools\\odata-mcp\\odata-mcp.exe",
+            "args": [
+                "--service",
+                "https://services.odata.org/V2/Northwind/Northwind.svc/",
+                "--tool-shrink"
+            ]
+        },
+        "my-company-service": {
+            "command": "C:\\Program Files\\ODataMcp\\odata-mcp.exe",
+            "args": [
+                "--service",
+                "https://api.company.com/odata/",
+                "--tool-shrink",
+                "--entities",
+                "Customers,Orders,Products"
+            ],
+            "env": {
+                "ODATA_USERNAME": "domain\\username",
+                "ODATA_PASSWORD": "password123"
+            }
+        },
+        "local-dev-service": {
+            "command": "dotnet",
+            "args": [
+                "run",
+                "--project",
+                "C:\\dev\\odata_mcp_net\\src\\ODataMcp",
+                "--",
+                "--service",
+                "http://localhost:5000/odata/",
+                "--tool-shrink"
+            ]
+        }
+    }
+}

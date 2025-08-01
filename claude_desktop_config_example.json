@@ -1,0 +1,31 @@
+{
+    "mcpServers": {
+        "northwind-v2-dotnet": {
+            "command": "/Users/alice/dev/odata_mcp_net/bin/test/odata-mcp",
+            "args": [
+                "--service",
+                "https://services.odata.org/V2/Northwind/Northwind.svc/",
+                "--tool-shrink"
+            ]
+        },
+        "northwind-v4-dotnet": {
+            "command": "/Users/alice/dev/odata_mcp_net/bin/test/odata-mcp",
+            "args": [
+                "--service",
+                "https://services.odata.org/V4/Northwind/Northwind.svc/",
+                "--tool-shrink"
+            ]
+        },
+        "northwind-readonly": {
+            "command": "/Users/alice/dev/odata_mcp_net/bin/test/odata-mcp",
+            "args": [
+                "--service",
+                "https://services.odata.org/V2/Northwind/Northwind.svc/",
+                "--read-only",
+                "--tool-shrink",
+                "--entities",
+                "Products,Categories,Orders"
+            ]
+        }
+    }
+}

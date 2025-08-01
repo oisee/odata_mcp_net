@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "hints": [
+    {
+      "pattern": "*/sap/opu/odata/*",
+      "priority": 10,
+      "service_type": "SAP OData Service",
+      "known_issues": [
+        "HTTP 501 errors may occur for certain queries without $expand",
+        "Some SAP services require CSRF tokens for all operations",
+        "Date fields use /Date(milliseconds)/ format",
+        "Decimal fields may be returned as strings"
+      ],
+      "workarounds": [
+        "Try adding $expand=* or specific navigation properties",
+        "The bridge automatically handles CSRF tokens",
+        "Legacy date format conversion is enabled by default",
+        "Decimal to string conversion is handled automatically"
+      ],
+      "notes": "SAP OData services have specific behaviors that may differ from standard OData implementations"
+    },
+    {
+      "pattern": "*SRA020_PO_TRACKING_SRV*",
+      "priority": 50,
+      "service_type": "SAP Purchase Order Tracking Service",
+      "field_hints": {
+        "Ebeln": {
+          "type": "Edm.String",
+          "format": "10-digit string with leading zeros",
+          "example": "4500000018",
+          "description": "Purchase Order Number"
+        },
+        "Bukrs": {
+          "type": "Edm.String",
+          "format": "4-character company code",
+          "example": "1000",
+          "description": "Company Code"
+        }
+      },
+      "examples": [
+        {
+          "description": "Filter by PO number",
+          "query": "filter_HeaderSet with $filter=Ebeln eq '4500000018'"
+        },
+        {
+          "description": "Get PO with items",
+          "query": "get_HeaderSet with key '4500000018' and $expand=NavItems"
+        }
+      ]
+    },
+    {
+      "pattern": "*Northwind*",
+      "priority": 1,
+      "service_type": "Northwind Demo Service",
+      "notes": "This is the public Northwind demo service for testing OData implementations"
+    }
+  ]
+}

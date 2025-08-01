@@ -1,0 +1,96 @@
+# OData MCP .NET Makefile
+.PHONY: all build clean test publish publish-all publish-windows publish-linux publish-macos help
+
+# Variables
+PROJECT_NAME = odata-mcp
+MAIN_PROJECT = src/ODataMcp/ODataMcp.csproj
+OUTPUT_DIR = bin/publish
+VERSION = 1.0.0
+
+# Default target
+all: build
+
+# Build for current platform
+build:
+	@echo "Building OData MCP for current platform..."
+	dotnet build $(MAIN_PROJECT) -c Release
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning build artifacts..."
+	dotnet clean
+	rm -rf bin obj $(OUTPUT_DIR)
+	find . -name "bin" -type d -exec rm -rf {} + 2>/dev/null || true
+	find . -name "obj" -type d -exec rm -rf {} + 2>/dev/null || true
+
+# Run tests
+test:
+	@echo "Running tests..."
+	dotnet test --logger "console;verbosity=normal"
+
+# Publish for all platforms
+publish-all: publish-windows publish-linux publish-macos
+	@echo "All platform builds completed!"
+	@ls -la $(OUTPUT_DIR)/
+
+# Publish for Windows
+publish-windows:
+	@echo "Publishing for Windows x64..."
+	dotnet publish $(MAIN_PROJECT) -c Release -r win-x64 --self-contained false -o $(OUTPUT_DIR)/win-x64
+	@echo "Windows build complete: $(OUTPUT_DIR)/win-x64/$(PROJECT_NAME).exe"
+
+# Publish for Linux
+publish-linux:
+	@echo "Publishing for Linux x64..."
+	dotnet publish $(MAIN_PROJECT) -c Release -r linux-x64 --self-contained false -o $(OUTPUT_DIR)/linux-x64
+	@chmod +x $(OUTPUT_DIR)/linux-x64/$(PROJECT_NAME)
+	@echo "Linux build complete: $(OUTPUT_DIR)/linux-x64/$(PROJECT_NAME)"
+
+# Publish for macOS (both Intel and Apple Silicon)
+publish-macos: publish-macos-x64 publish-macos-arm64
+
+publish-macos-x64:
+	@echo "Publishing for macOS x64 (Intel)..."
+	dotnet publish $(MAIN_PROJECT) -c Release -r osx-x64 --self-contained false -o $(OUTPUT_DIR)/osx-x64
+	@chmod +x $(OUTPUT_DIR)/osx-x64/$(PROJECT_NAME)
+	@echo "macOS Intel build complete: $(OUTPUT_DIR)/osx-x64/$(PROJECT_NAME)"
+
+publish-macos-arm64:
+	@echo "Publishing for macOS ARM64 (Apple Silicon)..."
+	dotnet publish $(MAIN_PROJECT) -c Release -r osx-arm64 --self-contained false -o $(OUTPUT_DIR)/osx-arm64
+	@chmod +x $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME)
+	@echo "macOS Apple Silicon build complete: $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME)"
+
+# Development build and run
+dev: build
+	@echo "Running OData MCP..."
+	dotnet run --project $(MAIN_PROJECT) -- --help
+
+# Install dependencies
+restore:
+	@echo "Restoring NuGet packages..."
+	dotnet restore
+
+# Run with Northwind example
+run-northwind:
+	dotnet run --project $(MAIN_PROJECT) -- --service https://services.odata.org/V2/Northwind/Northwind.svc/
+
+# Help
+help:
+	@echo "OData MCP .NET Makefile"
+	@echo ""
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all            - Build for current platform (default)"
+	@echo "  build          - Build the project"
+	@echo "  clean          - Clean build artifacts"
+	@echo "  test           - Run unit tests"
+	@echo "  publish-all    - Publish for all platforms"
+	@echo "  publish-windows - Publish for Windows x64"
+	@echo "  publish-linux  - Publish for Linux x64"
+	@echo "  publish-macos  - Publish for macOS (Intel and Apple Silicon)"
+	@echo "  dev            - Build and show help"
+	@echo "  restore        - Restore NuGet packages"
+	@echo "  run-northwind  - Run with Northwind test service"
+	@echo "  help           - Show this help message"

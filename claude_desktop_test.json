@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+        "odata-net-northwind": {
+            "command": "dotnet",
+            "args": [
+                "run",
+                "--project",
+                "/Users/alice/dev/odata_mcp_net/src/ODataMcp",
+                "--",
+                "--service",
+                "https://services.odata.org/V2/Northwind/Northwind.svc/",
+                "--tool-shrink"
+            ]
+        }
+    }
+}

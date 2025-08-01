@@ -1,0 +1,59 @@
+{
+    "mcpServers": {
+        "my-sap-service": {
+            "command": "/path/to/odata-mcp",
+            "args": [
+                "--service",
+                "https://my-sap-system.com/sap/opu/odata/sap/MY_SERVICE/",
+                "--tool-shrink",
+                "--entities",
+                "Products,Orders,Customers"
+            ],
+            "env": {
+                "ODATA_USERNAME": "myusername",
+                "ODATA_PASSWORD": "mypassword"
+            }
+        },
+        "cookie-auth-service": {
+            "command": "/path/to/odata-mcp",
+            "args": [
+                "--service",
+                "https://my-service.com/odata/",
+                "--cookie-file",
+                "/path/to/cookies.txt",
+                "--tool-shrink"
+            ]
+        },
+        "production-readonly": {
+            "command": "/path/to/odata-mcp",
+            "args": [
+                "--service",
+                "https://production.company.com/odata/",
+                "--read-only",
+                "--tool-shrink"
+            ],
+            "env": {
+                "ODATA_USERNAME": "readonly_user",
+                "ODATA_PASSWORD": "readonly_pass"
+            }
+        },
+        "dev-with-functions": {
+            "command": "/path/to/odata-mcp",
+            "args": [
+                "--service", 
+                "https://dev.company.com/odata/",
+                "--read-only-but-functions",
+                "--verbose-errors"
+            ]
+        },
+        "claude-code-compatible": {
+            "command": "/path/to/odata-mcp",
+            "args": [
+                "--service",
+                "https://services.odata.org/V2/Northwind/Northwind.svc/",
+                "--claude-code-friendly",
+                "--tool-shrink"
+            ]
+        }
+    }
+}
