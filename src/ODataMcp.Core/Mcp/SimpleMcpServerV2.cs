@@ -65,6 +65,8 @@ public class SimpleMcpServerV2
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to initialize OData service");
+            // Also write to stderr for Claude Desktop debugging
+            await Console.Error.WriteLineAsync($"Failed to initialize OData service: {ex}");
             throw;
         }
     }

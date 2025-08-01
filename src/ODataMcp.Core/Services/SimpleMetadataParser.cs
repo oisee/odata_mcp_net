@@ -30,30 +30,41 @@ public static class SimpleMetadataParser
         var xmlContent = await response.Content.ReadAsStringAsync();
         
         // Try to parse the metadata directly
-        using var stringReader = new StringReader(xmlContent);
-        using var xmlReader = System.Xml.XmlReader.Create(stringReader);
-        
         IEdmModel? model = null;
         IEnumerable<EdmError>? errors = null;
         
-        // Try different parsing approaches
-        if (CsdlReader.TryParse(xmlReader, out model, out errors))
+        try
         {
-            logger.LogInformation("Successfully parsed metadata using standard approach");
-            return model!;
+            using var stringReader = new StringReader(xmlContent);
+            using var xmlReader = System.Xml.XmlReader.Create(stringReader);
+            
+            // Try different parsing approaches
+            if (CsdlReader.TryParse(xmlReader, out model, out errors))
+            {
+                logger.LogInformation("Successfully parsed metadata using standard approach");
+                return model!;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Standard parsing failed, trying lenient approach");
         }
         
-        // If that fails, try with the ignoreUnexpectedAttributesAndElements flag
-        stringReader.Dispose();
-        xmlReader.Dispose();
-        
-        using var stringReader2 = new StringReader(xmlContent);
-        using var xmlReader2 = System.Xml.XmlReader.Create(stringReader2);
-        
-        if (CsdlReader.TryParse(xmlReader2, true, out model, out errors))
+        try
         {
-            logger.LogInformation("Successfully parsed metadata with lenient parsing");
-            return model!;
+            // If that fails, try with the ignoreUnexpectedAttributesAndElements flag
+            using var stringReader2 = new StringReader(xmlContent);
+            using var xmlReader2 = System.Xml.XmlReader.Create(stringReader2);
+            
+            if (CsdlReader.TryParse(xmlReader2, true, out model, out errors))
+            {
+                logger.LogInformation("Successfully parsed metadata with lenient parsing");
+                return model!;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Lenient parsing failed, trying manual approach");
         }
         
         // If that still fails, try a manual approach for OData v2
@@ -85,8 +96,57 @@ public static class SimpleMetadataParser
             }
         }
         
-        // If all else fails, throw an error with details
+        // If all parsing approaches fail, create a minimal model as fallback
+        logger.LogWarning("All parsing approaches failed, creating minimal fallback model");
+        
+        // Extract entity set names manually for fallback
+        var entitySetNames = new List<string>();
+        try
+        {
+            var fallbackDoc = XDocument.Parse(xmlContent);
+            var entitySets = fallbackDoc.Descendants().Where(e => e.Name.LocalName == "EntitySet");
+            entitySetNames.AddRange(entitySets.Select(es => es.Attribute("Name")?.Value).Where(name => !string.IsNullOrEmpty(name))!);
+            logger.LogInformation("Found {Count} entity sets for fallback model", entitySetNames.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to extract entity set names from metadata");
+        }
+        
+        if (entitySetNames.Any())
+        {
+            return CreateFallbackModel(entitySetNames);
+        }
+        
+        // If everything fails, throw an exception with details
         var errorMessage = errors != null ? string.Join(", ", errors.Select(e => e.ErrorMessage)) : "Unknown error";
         throw new InvalidOperationException($"Failed to parse OData metadata: {errorMessage}. First 500 chars of metadata: {xmlContent.Substring(0, Math.Min(500, xmlContent.Length))}");
+    }
+    
+    private static IEdmModel CreateFallbackModel(List<string> entitySetNames)
+    {
+        // Create a minimal EDM model as fallback
+        var model = new EdmModel();
+        var container = new EdmEntityContainer("Default", "Container");
+        model.AddElement(container);
+        
+        // Create a generic entity type for each entity set
+        foreach (var entitySetName in entitySetNames)
+        {
+            var entityType = new EdmEntityType("Default", entitySetName);
+            
+            // Add a generic ID property as the key
+            var keyProperty = new EdmStructuralProperty(entityType, "ID", EdmCoreModel.Instance.GetString(false));
+            entityType.AddProperty(keyProperty);
+            entityType.AddKeys(keyProperty);
+            
+            model.AddElement(entityType);
+            
+            // Add entity set to container
+            var entitySet = new EdmEntitySet(container, entitySetName, entityType);
+            container.AddElement(entitySet);
+        }
+        
+        return model;
     }
 }

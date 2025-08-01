@@ -150,7 +150,9 @@ public class SimpleStdioTransport
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling {Method}", request.Method);
-            return CreateErrorResponse(request.Id, -32603, "Internal error");
+            // Also write to stderr for Claude Desktop debugging
+            await Console.Error.WriteLineAsync($"Error handling {request.Method}: {ex}");
+            return CreateErrorResponse(request.Id, -32603, $"Internal error: {ex.Message}");
         }
     }
 
