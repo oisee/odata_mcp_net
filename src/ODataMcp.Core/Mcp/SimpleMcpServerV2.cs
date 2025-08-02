@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OData.Edm;
 using ODataMcp.Core.Configuration;
 using ODataMcp.Core.Services;
+using ODataMcp.Core.Debug;
 
 namespace ODataMcp.Core.Mcp;
 
@@ -76,11 +77,15 @@ public class SimpleMcpServerV2
     public Task<object> ListToolsAsync(CancellationToken cancellationToken = default)
     {
         var tools = new List<object>();
+        var suffix = GetToolSuffix();
+        
+        _logger.LogInformation("ListToolsAsync called, model is null: {IsNull}, container is null: {ContainerNull}", 
+            _model == null, _model?.EntityContainer == null);
 
         // Add service info tool
         tools.Add(new
         {
-            name = "odata_service_info",
+            name = $"odata_service_info{suffix}",
             description = "Get information about the OData service",
             inputSchema = new
             {
@@ -102,30 +107,46 @@ public class SimpleMcpServerV2
                 var entityType = entitySet.EntityType;
 
                 // Filter tool
-                tools.Add(CreateFilterTool(entitySet, shortName));
+                tools.Add(CreateFilterTool(entitySet, shortName, suffix));
 
                 // Get tool
-                tools.Add(CreateGetTool(entitySet, entityType, shortName));
+                tools.Add(CreateGetTool(entitySet, entityType, shortName, suffix));
 
                 // Count tool
-                tools.Add(CreateCountTool(entitySet, shortName));
+                tools.Add(CreateCountTool(entitySet, shortName, suffix));
 
-                // Search tool (if entity has string properties)
+                // Search tool (only if entity has string properties)
                 if (HasStringProperties(entityType))
                 {
-                    tools.Add(CreateSearchTool(entitySet, shortName));
+                    tools.Add(CreateSearchTool(entitySet, shortName, suffix));
                 }
 
                 if (!_config.ReadOnly)
                 {
                     // Create tool
-                    tools.Add(CreateCreateTool(entitySet, entityType, shortName));
+                    tools.Add(CreateCreateTool(entitySet, entityType, shortName, suffix));
 
                     // Update tool
-                    tools.Add(CreateUpdateTool(entitySet, entityType, shortName));
+                    tools.Add(CreateUpdateTool(entitySet, entityType, shortName, suffix));
 
                     // Delete tool
-                    tools.Add(CreateDeleteTool(entitySet, entityType, shortName));
+                    tools.Add(CreateDeleteTool(entitySet, entityType, shortName, suffix));
+                }
+            }
+            
+            // Add function imports (V2) or operations (V4)
+            _logger.LogInformation("Looking for function imports in container");
+            foreach (var element in _model.EntityContainer.Elements)
+            {
+                _logger.LogInformation("Container element: {Kind} - {Name}", 
+                    element.ContainerElementKind, 
+                    element is IEdmNamedElement named ? named.Name : "unnamed");
+                    
+                if (element.ContainerElementKind == EdmContainerElementKind.FunctionImport && 
+                    element is IEdmFunctionImport functionImport)
+                {
+                    _logger.LogInformation("Adding function import tool: {Name}", functionImport.Name);
+                    tools.Add(CreateFunctionTool(functionImport, suffix));
                 }
             }
         }
@@ -137,12 +158,42 @@ public class SimpleMcpServerV2
     {
         try
         {
-            if (name == "odata_service_info")
+            _logger.LogDebug("CallToolAsync called with name: {Name}", name);
+            
+            var suffix = GetToolSuffix();
+            _logger.LogDebug("Tool suffix: {Suffix}", suffix);
+            
+            if (name == $"odata_service_info{suffix}")
             {
                 return await GetServiceInfoAsync();
             }
 
-            // Parse tool name pattern
+            // Remove suffix from tool name
+            if (name.EndsWith(suffix))
+            {
+                name = name[..^suffix.Length];
+                _logger.LogDebug("Name after suffix removal: {Name}", name);
+            }
+            
+            // Check if it's a function import
+            _logger.LogDebug("Checking for function import: {Name}", name);
+            if (_model?.EntityContainer != null)
+            {
+                var functionImport = _model.EntityContainer.Elements
+                    .Where(e => e.ContainerElementKind == EdmContainerElementKind.FunctionImport)
+                    .OfType<IEdmFunctionImport>()
+                    .FirstOrDefault(f => name == f.Name);
+                    
+                _logger.LogDebug("Function import found: {Found}", functionImport != null);
+                    
+                if (functionImport != null)
+                {
+                    _logger.LogDebug("Executing function: {FunctionName}", functionImport.Name);
+                    return await ExecuteFunctionAsync(functionImport, arguments);
+                }
+            }
+            
+            // Parse tool name pattern for entity operations
             var parts = name.Split('_', 2);
             if (parts.Length != 2)
             {
@@ -236,7 +287,7 @@ public class SimpleMcpServerV2
         if ((args.TryGetProperty("skip", out var sk) || args.TryGetProperty("$skip", out sk)) && sk.TryGetInt32(out var skipVal))
             queryOptions["$skip"] = skipVal.ToString();
         
-        queryOptions["$count"] = "true";
+        // Note: $count is V4 feature, not supported in V2
 
         return await _odataService!.ExecuteQueryAsync(entityName, queryOptions);
     }
@@ -374,6 +425,13 @@ public class SimpleMcpServerV2
             {
                 EdmPrimitiveTypeKind.String => $"'{element.GetString()}'",
                 EdmPrimitiveTypeKind.Guid => $"guid'{element.GetString()}'",
+                EdmPrimitiveTypeKind.Int16 => element.GetInt16().ToString(),
+                EdmPrimitiveTypeKind.Int32 => element.GetInt32().ToString(),
+                EdmPrimitiveTypeKind.Int64 => element.GetInt64().ToString(),
+                EdmPrimitiveTypeKind.Double => element.GetDouble().ToString("G17"),
+                EdmPrimitiveTypeKind.Decimal => element.GetDecimal().ToString(),
+                EdmPrimitiveTypeKind.Boolean => element.GetBoolean().ToString().ToLower(),
+                EdmPrimitiveTypeKind.DateTimeOffset => $"datetime'{element.GetDateTime():yyyy-MM-ddTHH:mm:ss}'",
                 _ => element.GetString()!
             };
         }
@@ -414,14 +472,62 @@ public class SimpleMcpServerV2
         var searchTools = _model.EntityContainer.EntitySets()
             .Count(es => ShouldIncludeEntity(es.Name) && HasStringProperties(es.EntityType));
         var modifyTools = _config.ReadOnly ? 0 : entityCount * 3; // create, update, delete
-        return 1 + (entityCount * baseTools) + searchTools + modifyTools;
+        
+        // Count function imports (V2) or operations (V4)
+        var functionCount = 0;
+        if (_model.EntityContainer.Elements.Any(e => e.ContainerElementKind == EdmContainerElementKind.FunctionImport))
+        {
+            functionCount = _model.EntityContainer.Elements
+                .Where(e => e.ContainerElementKind == EdmContainerElementKind.FunctionImport)
+                .Count();
+        }
+        
+        return 1 + (entityCount * baseTools) + searchTools + modifyTools + functionCount;
     }
 
-    private object CreateFilterTool(IEdmEntitySet entitySet, string shortName)
+    private string GetToolSuffix()
+    {
+        // Generate a suffix from the service URL to distinguish tools from different services
+        try
+        {
+            var uri = new Uri(_config.ServiceUrl);
+            var host = uri.Host;
+            var path = uri.AbsolutePath.Trim('/');
+            
+            // Extract a meaningful suffix from the URL
+            if (path.Length > 0)
+            {
+                var parts = path.Split('/');
+                var lastPart = parts.Last();
+                
+                // Remove common suffixes like .svc
+                if (lastPart.EndsWith(".svc", StringComparison.OrdinalIgnoreCase))
+                    lastPart = lastPart[..^4];
+                
+                // Use the last meaningful part of the path
+                if (!string.IsNullOrEmpty(lastPart))
+                    return $"_for_{ShortenName(lastPart)}";
+            }
+            
+            // Fallback to host-based suffix
+            var hostParts = host.Split('.');
+            if (hostParts.Length > 2)
+                return $"_for_{hostParts[^2]}"; // Use subdomain
+            
+            return $"_for_{hostParts[0]}";
+        }
+        catch
+        {
+            // If URL parsing fails, use a default suffix
+            return "_for_OData";
+        }
+    }
+
+    private object CreateFilterTool(IEdmEntitySet entitySet, string shortName, string suffix)
     {
         return new
         {
-            name = $"filter_{shortName}",
+            name = $"filter_{shortName}{suffix}",
             description = $"Query {entitySet.Name} with OData filters",
             inputSchema = new
             {
@@ -440,7 +546,7 @@ public class SimpleMcpServerV2
         };
     }
 
-    private object CreateGetTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName)
+    private object CreateGetTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName, string suffix)
     {
         var keyProperties = entityType.Key().ToList();
         var properties = new Dictionary<string, object>();
@@ -456,7 +562,7 @@ public class SimpleMcpServerV2
 
         return new
         {
-            name = $"get_{shortName}",
+            name = $"get_{shortName}{suffix}",
             description = $"Get a specific {entitySet.Name} by key",
             inputSchema = new
             {
@@ -468,7 +574,7 @@ public class SimpleMcpServerV2
         };
     }
 
-    private object CreateCreateTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName)
+    private object CreateCreateTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName, string suffix)
     {
         var properties = new Dictionary<string, object>();
         var required = new List<string>();
@@ -494,7 +600,7 @@ public class SimpleMcpServerV2
 
         return new
         {
-            name = $"create_{shortName}",
+            name = $"create_{shortName}{suffix}",
             description = $"Create a new {entitySet.Name}",
             inputSchema = new
             {
@@ -506,7 +612,7 @@ public class SimpleMcpServerV2
         };
     }
 
-    private object CreateUpdateTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName)
+    private object CreateUpdateTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName, string suffix)
     {
         var properties = new Dictionary<string, object>();
         var keyProperties = entityType.Key().ToList();
@@ -529,7 +635,7 @@ public class SimpleMcpServerV2
 
         return new
         {
-            name = $"update_{shortName}",
+            name = $"update_{shortName}{suffix}",
             description = $"Update an existing {entitySet.Name}",
             inputSchema = new
             {
@@ -541,7 +647,7 @@ public class SimpleMcpServerV2
         };
     }
 
-    private object CreateDeleteTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName)
+    private object CreateDeleteTool(IEdmEntitySet entitySet, IEdmEntityType entityType, string shortName, string suffix)
     {
         var keyProperties = entityType.Key().ToList();
         var properties = new Dictionary<string, object>();
@@ -557,7 +663,7 @@ public class SimpleMcpServerV2
 
         return new
         {
-            name = $"delete_{shortName}",
+            name = $"delete_{shortName}{suffix}",
             description = $"Delete a {entitySet.Name}",
             inputSchema = new
             {
@@ -635,11 +741,11 @@ public class SimpleMcpServerV2
         return typeRef.Definition.FullTypeName();
     }
 
-    private object CreateCountTool(IEdmEntitySet entitySet, string shortName)
+    private object CreateCountTool(IEdmEntitySet entitySet, string shortName, string suffix)
     {
         return new
         {
-            name = $"count_{shortName}",
+            name = $"count_{shortName}{suffix}",
             description = $"Get count of {entitySet.Name} with optional filter",
             inputSchema = new
             {
@@ -653,11 +759,11 @@ public class SimpleMcpServerV2
         };
     }
 
-    private object CreateSearchTool(IEdmEntitySet entitySet, string shortName)
+    private object CreateSearchTool(IEdmEntitySet entitySet, string shortName, string suffix)
     {
         return new
         {
-            name = $"search_{shortName}",
+            name = $"search_{shortName}{suffix}",
             description = $"Search {entitySet.Name} across all text fields",
             inputSchema = new
             {
@@ -676,8 +782,89 @@ public class SimpleMcpServerV2
 
     private bool HasStringProperties(IEdmEntityType entityType)
     {
-        return entityType.Properties().Any(p => 
-            p.Type.Definition.TypeKind == EdmTypeKind.Primitive && 
-            p.Type.AsPrimitive().PrimitiveKind() == EdmPrimitiveTypeKind.String);
+        // Disable search functions for now - OData V2 service doesn't support contains() function
+        // and we need to check metadata for actual searchability annotations
+        return false;
+        
+        // Original logic (commented out until we can properly detect searchable entities):
+        // return entityType.Properties().Any(p => 
+        //     p.Type.Definition.TypeKind == EdmTypeKind.Primitive && 
+        //     p.Type.AsPrimitive().PrimitiveKind() == EdmPrimitiveTypeKind.String);
+    }
+
+    private object CreateFunctionTool(IEdmFunctionImport functionImport, string suffix)
+    {
+        var parameters = new Dictionary<string, object>();
+        
+        foreach (var param in functionImport.Function.Parameters)
+        {
+            var paramDef = new Dictionary<string, object>
+            {
+                ["type"] = GetJsonSchemaType(param.Type),
+                ["description"] = $"Parameter: {param.Name}"
+            };
+            
+            parameters[param.Name] = paramDef;
+        }
+        
+        var required = functionImport.Function.Parameters
+            .Where(p => !p.Type.IsNullable)
+            .Select(p => p.Name)
+            .ToArray();
+        
+        var schema = new Dictionary<string, object>
+        {
+            ["type"] = "object",
+            ["properties"] = parameters,
+            ["additionalProperties"] = false
+        };
+        
+        if (required.Any())
+        {
+            schema["required"] = required;
+        }
+        
+        return new
+        {
+            name = $"{functionImport.Name}{suffix}",
+            description = $"Execute function {functionImport.Name}",
+            inputSchema = schema
+        };
+    }
+
+    private async Task<object> ExecuteFunctionAsync(IEdmFunctionImport functionImport, JsonElement? arguments)
+    {
+        var parameters = new Dictionary<string, string>();
+        
+        if (arguments.HasValue)
+        {
+            foreach (var param in functionImport.Function.Parameters)
+            {
+                if (arguments.Value.TryGetProperty(param.Name, out var value))
+                {
+                    parameters[param.Name] = value.ToString();
+                }
+            }
+        }
+        
+        // Build function URL - V2 uses query string parameters, not parentheses
+        var functionUrl = functionImport.Name;
+        if (parameters.Any())
+        {
+            // For V2, parameters should not be URL encoded - they're simple values
+            var paramString = string.Join("&", parameters.Select(p => $"{p.Key}={p.Value}"));
+            functionUrl += $"?{paramString}";
+        }
+        
+        _logger.LogDebug("ExecuteFunctionAsync building URL: functionName={FunctionName}, parameters={Parameters}", 
+            functionImport.Name, string.Join(",", parameters.Select(p => $"{p.Key}={p.Value}")));
+        _logger.LogDebug("Generated function URL: {FunctionUrl}", functionUrl);
+        
+        _logger.LogInformation("Executing function: {FunctionUrl}", functionUrl);
+        
+        using (var timer = new ODataMcpDebugger.PerformanceTimer($"ExecuteFunction: {functionUrl}"))
+        {
+            return await _odataService!.ExecuteFunctionAsync(functionUrl);
+        }
     }
 }

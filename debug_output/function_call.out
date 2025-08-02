@@ -1,0 +1,8 @@
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":true}},"protocolVersion":"2024-11-05","serverInfo":{"name":"odata-mcp","version":"1.0.0"}}}
+Error handling tools/call: System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at ODataMcp.Core.Services.SimpleODataService.ExecuteFunctionAsync(String functionUrl, CancellationToken cancellationToken)
+   at ODataMcp.Core.Mcp.SimpleMcpServerV2.ExecuteFunctionAsync(IEdmFunctionImport functionImport, Nullable`1 arguments)
+   at ODataMcp.Core.Mcp.SimpleMcpServerV2.CallToolAsync(String name, Nullable`1 arguments, CancellationToken cancellationToken)
+   at ODataMcp.Core.Transport.SimpleStdioTransport.HandleRequestAsync(JsonRpcRequest request, CancellationToken cancellationToken)
+{"jsonrpc":"2.0","id":2,"error":{"code":-32603,"message":"Internal error: Response status code does not indicate success: 400 (Bad Request)."}}

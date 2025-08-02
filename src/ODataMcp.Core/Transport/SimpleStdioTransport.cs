@@ -44,7 +44,6 @@ public class SimpleStdioTransport
                 if (line == null)
                     break;
 
-
                 try
                 {
                     var request = JsonSerializer.Deserialize<JsonRpcRequest>(line, _jsonOptions);

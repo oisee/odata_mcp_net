@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.OData.Edm;
 using Microsoft.OData.Edm.Csdl;
+using ODataMcp.Core.Debug;
 
 namespace ODataMcp.Core.Services;
 
@@ -169,5 +170,74 @@ public class SimpleODataService
 
         response.EnsureSuccessStatusCode();
         return true;
+    }
+
+    public async Task<object> ExecuteFunctionAsync(string functionUrl, CancellationToken cancellationToken = default)
+    {
+        var url = $"{_serviceUrl.TrimEnd('/')}/{functionUrl}";
+        
+        
+        _logger.LogInformation("ExecuteFunctionAsync: Full URL = {Url}", url);
+        
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        
+        // V2 services typically return XML by default, but we can accept both
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/atom+xml"));
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        
+        // Add OData V2 specific headers
+        request.Headers.Add("DataServiceVersion", "2.0");
+        request.Headers.Add("MaxDataServiceVersion", "2.0");
+        
+        // Add basic auth if provided
+        if (!string.IsNullOrEmpty(_username) && !string.IsNullOrEmpty(_password))
+        {
+            var authValue = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{_username}:{_password}"));
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authValue);
+        }
+        
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("HTTP {StatusCode} {ReasonPhrase} for URL: {Url}. Response: {ErrorContent}", 
+                (int)response.StatusCode, response.ReasonPhrase, url, errorContent);
+        }
+        
+        response.EnsureSuccessStatusCode();
+        
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        
+        // Parse the response based on content type
+        if (response.Content.Headers.ContentType?.MediaType == "application/json")
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<object>(content) ?? new { };
+        }
+        else
+        {
+            // For XML responses, parse and convert to dynamic object
+            var doc = XDocument.Parse(content);
+            var entries = new List<object>();
+            
+            // Parse atom feed format
+            foreach (var entry in doc.Descendants().Where(e => e.Name.LocalName == "entry"))
+            {
+                var properties = entry.Descendants()
+                    .FirstOrDefault(e => e.Name.LocalName == "properties");
+                    
+                if (properties != null)
+                {
+                    var item = new Dictionary<string, object>();
+                    foreach (var prop in properties.Elements())
+                    {
+                        item[prop.Name.LocalName] = prop.Value;
+                    }
+                    entries.Add(item);
+                }
+            }
+            
+            return new { value = entries };
+        }
     }
 }
