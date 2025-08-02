@@ -42,16 +42,25 @@
 
 ### ⚠️ Known Issues
 
-- **Debug vs Release Build**: Release builds currently fail with certain operations. Use Debug builds for Claude Desktop integration.
+- **ARM64 macOS Release Build**: Native ARM64 Release builds fail due to a .NET runtime bug. **SOLVED**: Use x64 builds on Apple Silicon (they run perfectly via Rosetta 2). See [ARM64_BUG_FOUND.md](ARM64_BUG_FOUND.md).
 - **Write Operations**: Create/Update operations may fail on read-only demo services
 - **Date Format**: .NET uses `/Date(timestamp)/` format vs ISO format (cosmetic difference)
 
 ### 🚀 Next Steps
 
-- Investigate and fix Release build issue
+- Report ARM64 bug to .NET team
 - Add metadata validation for CRUD operations
 - Implement automated test suite
 - Add performance benchmarking
+
+### 🎉 Major Discovery
+
+Through collaborative debugging, we discovered that the "Release build issue" is actually a .NET runtime bug specific to ARM64 macOS! The solution is elegantly simple: use x64 builds on Apple Silicon Macs, which run flawlessly through Rosetta 2.
+
+This discovery highlights the importance of:
+- Testing across different architectures
+- Creative debugging approaches
+- The amazing compatibility layer that is Rosetta 2
 
 ---
 

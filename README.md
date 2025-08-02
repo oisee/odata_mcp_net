@@ -358,16 +358,24 @@ make dist
 
 ## Known Issues
 
-### Debug vs Release Build
-Currently, there's a known issue where Release builds may fail with certain OData operations (specifically function imports). **Please use Debug builds for Claude Desktop integration** until this is resolved.
+### ARM64 macOS Release Build Issue (SOLVED! 🎉)
+
+We've discovered a .NET runtime bug specific to ARM64 (Apple Silicon) macOS where Release builds fail with HTTP 400 errors on function imports. 
+
+**Solution**: Use x64 builds on Apple Silicon - they run perfectly via Rosetta 2!
 
 ```bash
-# Build Debug version
-dotnet build --configuration Debug
+# For Apple Silicon Macs - build for x64
+dotnet publish src/ODataMcp -c Release -r osx-x64 --self-contained -o publish-x64
 
-# Path for Claude Desktop config
-/path/to/odata_mcp_net/src/ODataMcp/bin/Debug/net8.0/odata-mcp
+# Use in Claude Desktop config:
+"command": "/path/to/odata_mcp_net/publish-x64/odata-mcp"
+
+# For Intel Macs or other platforms - regular Release works fine
+dotnet build --configuration Release
 ```
+
+See [ARM64_BUG_FOUND.md](ARM64_BUG_FOUND.md) for full details of this discovery.
 
 ### OData V2 Limitations
 - Search functionality is not available for OData V2 services

@@ -851,8 +851,8 @@ public class SimpleMcpServerV2
         var functionUrl = functionImport.Name;
         if (parameters.Any())
         {
-            // For V2, parameters should not be URL encoded - they're simple values
-            var paramString = string.Join("&", parameters.Select(p => $"{p.Key}={p.Value}"));
+            // Build query string with proper URL encoding
+            var paramString = string.Join("&", parameters.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
             functionUrl += $"?{paramString}";
         }
         

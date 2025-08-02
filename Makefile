@@ -57,10 +57,14 @@ publish-macos-x64:
 	@echo "macOS Intel build complete: $(OUTPUT_DIR)/osx-x64/$(PROJECT_NAME)"
 
 publish-macos-arm64:
-	@echo "Publishing for macOS ARM64 (Apple Silicon)..."
-	dotnet publish $(MAIN_PROJECT) -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o $(OUTPUT_DIR)/osx-arm64
-	@chmod +x $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME)
-	@echo "macOS Apple Silicon build complete: $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME)"
+	@echo "⚠️  WARNING: ARM64 Release builds have a known runtime bug on macOS"
+	@echo "   Building Debug version for ARM64. For Release, use x64 build (runs via Rosetta 2)"
+	@echo "   See ARM64_BUG_FOUND.md for details"
+	@echo ""
+	@echo "Publishing for macOS ARM64 (Apple Silicon) - Debug mode..."
+	dotnet publish $(MAIN_PROJECT) -c Debug -r osx-arm64 --self-contained -p:PublishSingleFile=true -o $(OUTPUT_DIR)/osx-arm64-debug
+	@chmod +x $(OUTPUT_DIR)/osx-arm64-debug/$(PROJECT_NAME)
+	@echo "macOS Apple Silicon Debug build complete: $(OUTPUT_DIR)/osx-arm64-debug/$(PROJECT_NAME)"
 
 # Development build and run
 dev: build
@@ -86,19 +90,24 @@ dist: publish-all
 	@cd $(OUTPUT_DIR)/linux-x64 && tar -czf ../../dist/$(PROJECT_NAME)-$(VERSION)-linux-x64.tar.gz .
 	@echo "Packaging macOS x64..."
 	@cd $(OUTPUT_DIR)/osx-x64 && tar -czf ../../dist/$(PROJECT_NAME)-$(VERSION)-osx-x64.tar.gz .
-	@echo "Packaging macOS ARM64..."
-	@cd $(OUTPUT_DIR)/osx-arm64 && tar -czf ../../dist/$(PROJECT_NAME)-$(VERSION)-osx-arm64.tar.gz .
+	@echo "Packaging macOS ARM64 Debug..."
+	@cd $(OUTPUT_DIR)/osx-arm64-debug && tar -czf ../../dist/$(PROJECT_NAME)-$(VERSION)-osx-arm64-debug.tar.gz .
 	@echo ""
 	@echo "Distribution packages created:"
 	@ls -lh $(DIST_DIR)/
 	@echo ""
 	@echo "🎉 Release $(VERSION) packages ready!"
+	@echo ""
+	@echo "⚠️  IMPORTANT: Apple Silicon users should use the x64 build"
+	@echo "   due to an ARM64 .NET runtime bug. It runs perfectly via Rosetta 2!"
+	@echo "   See ARM64_BUG_FOUND.md for details."
 
 # Install local binary for development
-install-local: publish-macos-arm64
-	@echo "Installing local binary for development..."
-	@cp $(OUTPUT_DIR)/osx-arm64/$(PROJECT_NAME) ./$(PROJECT_NAME)
+install-local: publish-macos-x64
+	@echo "Installing local binary for development (x64 for Apple Silicon compatibility)..."
+	@cp $(OUTPUT_DIR)/osx-x64/$(PROJECT_NAME) ./$(PROJECT_NAME)
 	@echo "Local binary installed: ./$(PROJECT_NAME)"
+	@echo "Note: Using x64 build which runs perfectly on Apple Silicon via Rosetta 2"
 
 # Create a release with all binaries
 release: clean dist install-local
