@@ -8,19 +8,20 @@ This is a .NET 8 port of the [Python](https://github.com/yyyo/odata-mcp) and [Go
 
 - **Universal OData Support**: Works with both OData v2 and v4 services
 - **Cross-Platform**: Runs on Windows, Linux, and macOS (Intel & Apple Silicon)  
-- **Dynamic Tool Generation**: Automatically creates 7+ tools per entity set:
-  - `filter_{entity}`: Query with OData options
+- **Dynamic Tool Generation**: Automatically creates tools per entity set:
+  - `filter_{entity}`: Query with OData options ($filter, $select, $expand, etc.)
   - `get_{entity}`: Retrieve single entity by key
-  - `create_{entity}`: Create new entity
-  - `update_{entity}`: Update existing entity
-  - `delete_{entity}`: Delete entity
   - `count_{entity}`: Get count with optional filter
-  - `search_{entity}`: Full-text search across string fields
+  - `create_{entity}`: Create new entity (when not read-only)
+  - `update_{entity}`: Update existing entity (when not read-only)
+  - `delete_{entity}`: Delete entity (when not read-only)
+  - Function imports (e.g., `GetProductsByRating`)
+- **Proper Type Handling**: Correctly formats integers, strings, dates, and other OData types
 - **Multiple Authentication Methods**: Basic auth, CSRF tokens, and anonymous access
 - **SAP OData Extensions**: Automatic CSRF token handling for SAP services
-- **Advanced Query Support**: OData query options ($filter, $select, $expand, $orderby, etc.)
+- **Advanced Query Support**: Full OData query options support
 - **Flexible Configuration**: Entity filtering, read-only modes, tool name customization
-- **Claude-Code-Friendly**: Optional mode for better Claude Code integration
+- **Smart Tool Suffixes**: Automatic namespace disambiguation for multiple MCP servers
 - **Comprehensive Documentation**: See [IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md) for architecture details
 
 ## Quick Start
@@ -50,6 +51,8 @@ Extract and place the executable in your preferred location:
 - **Windows**: Extract the .zip and use `odata-mcp.exe`
 - **macOS/Linux**: Extract the .tar.gz and make executable: `chmod +x odata-mcp`
 
+> **Note**: Currently, use Debug builds for Claude Desktop integration. See [Known Issues](#known-issues).
+
 ### Option 2: Build from Source
 
 ```bash
@@ -61,14 +64,14 @@ cd odata_mcp_net
 # Linux: Follow https://docs.microsoft.com/dotnet/core/install/linux
 # Windows: Download from https://dotnet.microsoft.com/download
 
-# Build for current platform
-make build
+# Build Debug version (recommended for now)
+dotnet build --configuration Debug
 
 # Or build for all platforms
 make publish-all
 
 # Windows users without make can use:
-# dotnet publish src/ODataMcp -c Release -r win-x64 --self-contained
+# dotnet publish src/ODataMcp -c Debug -r win-x64 --self-contained
 ```
 
 ## Usage
@@ -77,13 +80,13 @@ make publish-all
 
 ```bash
 # Using positional argument
-./odata-mcp https://services.odata.org/V2/Northwind/Northwind.svc/
+./odata-mcp https://services.odata.org/V2/OData/OData.svc/
 
 # Using --service flag
-./odata-mcp --service https://services.odata.org/V2/Northwind/Northwind.svc/
+./odata-mcp --service https://services.odata.org/V2/OData/OData.svc/
 
 # Using environment variable
-export ODATA_SERVICE_URL=https://services.odata.org/V2/Northwind/Northwind.svc/
+export ODATA_SERVICE_URL=https://services.odata.org/V2/OData/OData.svc/
 ./odata-mcp
 ```
 
@@ -96,18 +99,17 @@ Add to your Claude Desktop configuration file:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-#### Basic Configuration
+#### Basic Configuration (Debug Build)
 
 ```json
 {
     "mcpServers": {
-        "northwind": {
-            "command": "C:\\path\\to\\odata-mcp.exe",  // Windows
-            // "command": "/path/to/odata-mcp",        // macOS/Linux
+        "odata-demo": {
+            "command": "/path/to/odata_mcp_net/src/ODataMcp/bin/Debug/net8.0/odata-mcp",
             "args": [
                 "--service",
-                "https://services.odata.org/V2/Northwind/Northwind.svc/",
-                "--tool-shrink"
+                "https://services.odata.org/V2/OData/OData.svc/",
+                "--pagination-hints"
             ]
         }
     }
@@ -209,6 +211,7 @@ Tool Generation:
                            Examples: "Products,Orders" or "Product*,Order*"
   --tool-shrink            Shorten tool names (e.g., filter_products vs filter_Products)
   --claude-code-friendly   Remove $ prefixes from OData parameters
+  --pagination-hints       Add pagination guidance to tool descriptions
   
 Access Control:
   --read-only              Disable create, update, and delete operations
@@ -220,40 +223,52 @@ Debugging:
   --help                   Display help and usage information
 ```
 
+## Generated Tools
+
+For each entity set, the bridge generates the following tools:
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `filter_{entity}` | Query with OData filters | `filter_Products` with `$filter=Price gt 10` |
+| `get_{entity}` | Get single entity by key | `get_Products` with `ID: 1` |
+| `count_{entity}` | Count entities with optional filter | `count_Products` with filter |
+| `create_{entity}` | Create new entity | `create_Products` with entity data |
+| `update_{entity}` | Update existing entity | `update_Products` with ID and changes |
+| `delete_{entity}` | Delete entity | `delete_Products` with ID |
+
+Additionally:
+- **Function Imports**: OData functions like `GetProductsByRating`
+- **Service Info**: `odata_service_info` tool for metadata inspection
+
 ## Example Use Cases
 
-### 1. Public Test Service (Northwind)
+### 1. Public Test Service (OData V2)
 ```json
 {
     "mcpServers": {
-        "northwind-demo": {
+        "odata-v2-demo": {
             "command": "/path/to/odata-mcp",
             "args": [
-                "--service", "https://services.odata.org/V2/Northwind/Northwind.svc/",
+                "--service", "https://services.odata.org/V2/OData/OData.svc/",
                 "--tool-shrink",
-                "--claude-code-friendly"
+                "--pagination-hints"
             ]
         }
     }
 }
 ```
 
-### 2. Corporate API with Limited Entities
+### 2. OData V4 Service
 ```json
 {
     "mcpServers": {
-        "company-api": {
+        "odata-v4-demo": {
             "command": "/path/to/odata-mcp",
             "args": [
-                "--service", "https://api.company.com/odata/v4/",
-                "--entities", "Customer*,Product*,Order*",
+                "--service", "https://services.odata.org/V4/OData/OData.svc/",
                 "--tool-shrink",
-                "--max-items", "25"
-            ],
-            "env": {
-                "ODATA_USERNAME": "api_user",
-                "ODATA_PASSWORD": "api_key_here"
-            }
+                "--claude-code-friendly"
+            ]
         }
     }
 }
@@ -287,16 +302,15 @@ dotnet run --project src/ODataMcp -- --help
 
 ### Creating Release Binaries
 ```bash
-# Single platform
-make publish-windows    # Creates bin/publish/win-x64/
-make publish-linux      # Creates bin/publish/linux-x64/
-make publish-macos      # Creates bin/publish/osx-x64/ and osx-arm64/
+# Single platform (use Debug for now)
+dotnet publish src/ODataMcp -c Debug -r win-x64 --self-contained
+dotnet publish src/ODataMcp -c Debug -r linux-x64 --self-contained
+dotnet publish src/ODataMcp -c Debug -r osx-x64 --self-contained
+dotnet publish src/ODataMcp -c Debug -r osx-arm64 --self-contained
 
-# All platforms
+# Using Make
 make publish-all
-
-# Create distribution archives
-make dist              # Creates .zip and .tar.gz files
+make dist
 ```
 
 ## Troubleshooting
@@ -307,6 +321,11 @@ make dist              # Creates .zip and .tar.gz files
 - Verify the service URL is accessible and returns valid metadata
 - Check authentication credentials if required
 - Use `--verbose` to see detailed parsing information
+
+**"Function call returns 400 Bad Request"**
+- Ensure you're using the Debug build (see [Known Issues](#known-issues))
+- Check that the OData service supports the operation
+- Verify parameter types match the metadata
 
 **"Parse error on metadata"**
 - Some services require authentication even for metadata
@@ -322,28 +341,37 @@ make dist              # Creates .zip and .tar.gz files
 
 1. **Test with public service first:**
    ```bash
-   # macOS/Linux
-   ./odata-mcp --service https://services.odata.org/V2/Northwind/Northwind.svc/ --trace
-   
-   # Windows
-   odata-mcp.exe --service https://services.odata.org/V2/Northwind/Northwind.svc/ --trace
+   ./odata-mcp --service https://services.odata.org/V2/OData/OData.svc/ --trace
    ```
 
 2. **Verify tools are generated:**
    ```bash
-   # macOS/Linux
-   echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' | \
-   ./odata-mcp --service https://services.odata.org/V2/Northwind/Northwind.svc/
-   
-   # Windows PowerShell
-   echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' | `
-   .\odata-mcp.exe --service https://services.odata.org/V2/Northwind/Northwind.svc/
+   echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}' | \
+   ./odata-mcp --service https://services.odata.org/V2/OData/OData.svc/ | \
+   jq '.result.tools[].name'
    ```
 
 3. **Check Claude Desktop integration:**
    - Restart Claude Desktop after config changes
    - Look for your MCP server in Claude's model context
-   - Try a simple query like "Show me all products"
+   - Try a simple query like "Show me product with ID 1"
+
+## Known Issues
+
+### Debug vs Release Build
+Currently, there's a known issue where Release builds may fail with certain OData operations (specifically function imports). **Please use Debug builds for Claude Desktop integration** until this is resolved.
+
+```bash
+# Build Debug version
+dotnet build --configuration Debug
+
+# Path for Claude Desktop config
+/path/to/odata_mcp_net/src/ODataMcp/bin/Debug/net8.0/odata-mcp
+```
+
+### OData V2 Limitations
+- Search functionality is not available for OData V2 services
+- Some V2 services may have limited function import support
 
 ## Documentation
 
@@ -351,6 +379,15 @@ make dist              # Creates .zip and .tar.gz files
 - **[REIMPLEMENTATION_GUIDE.md](REIMPLEMENTATION_GUIDE.md)** - Journey of porting from Go/Python to .NET
 - **[TESTING.md](TESTING.md)** - Comprehensive testing guide
 - **[LIBRARY_INTEGRATION.md](LIBRARY_INTEGRATION.md)** - Details on OData library usage
+
+## Recent Improvements
+
+- ✅ Fixed integer ID formatting (no more quoted integers)
+- ✅ Achieved tool parity with Go implementation
+- ✅ Improved OData V2 metadata parsing
+- ✅ Added function import support
+- ✅ Smart tool name suffixes for multi-server environments
+- ✅ Removed non-functional search tools pending proper metadata validation
 
 ## Contributing
 
