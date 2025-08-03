@@ -40,12 +40,12 @@ This is a .NET 8 port of the [Python](https://github.com/yyyo/odata-mcp) and [Go
 
 ### Option 1: Pre-built Binaries (Recommended)
 
-Download the appropriate binary for your platform:
+Download the appropriate binary for your platform from the [latest release](https://github.com/oisee/odata_mcp_net/releases/latest):
 
-- **Windows**: `odata-mcp-win-x64.zip`
-- **macOS Intel**: `odata-mcp-osx-x64.tar.gz`
-- **macOS Apple Silicon**: `odata-mcp-osx-arm64.tar.gz`
-- **Linux**: `odata-mcp-linux-x64.tar.gz`
+- **Windows x64**: [odata-mcp-v0.5.1-win-x64.zip](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-win-x64.zip)
+- **Windows x86**: [odata-mcp-v0.5.1-win-x86.zip](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-win-x86.zip)
+- **macOS x64**: [odata-mcp-v0.5.1-osx-x64.tar.gz](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-osx-x64.tar.gz) (recommended for Apple Silicon)
+- **Linux x64**: [odata-mcp-v0.5.1-linux-x64.tar.gz](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-linux-x64.tar.gz)
 
 Extract and place the executable in your preferred location:
 - **Windows**: Extract the .zip and use `odata-mcp.exe`
@@ -390,6 +390,13 @@ See [ARM64_BUG_FOUND.md](ARM64_BUG_FOUND.md) for full details of this discovery.
 
 ## Recent Improvements
 
+### v0.5.1 (Latest Release) 🎉
+- ✅ **Fixed build issues** - Removed invalid namespace references, builds now work reliably
+- ✅ **Cross-platform binaries** - Windows x64/x86, Linux x64, macOS x64 ready-to-use binaries
+- ✅ **Enhanced documentation** - Added comprehensive CLAUDE.md for development guidance
+- ✅ **Improved release process** - Automated builds and GitHub releases
+
+### Previous Improvements
 - ✅ Fixed integer ID formatting (no more quoted integers)
 - ✅ Achieved tool parity with Go implementation
 - ✅ Improved OData V2 metadata parsing

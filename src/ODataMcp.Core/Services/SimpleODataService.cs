@@ -3,7 +3,6 @@ using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.OData.Edm;
 using Microsoft.OData.Edm.Csdl;
-using ODataMcp.Core.Debug;
 
 namespace ODataMcp.Core.Services;
 

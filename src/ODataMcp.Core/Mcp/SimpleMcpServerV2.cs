@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OData.Edm;
 using ODataMcp.Core.Configuration;
 using ODataMcp.Core.Services;
-using ODataMcp.Core.Debug;
 
 namespace ODataMcp.Core.Mcp;
 
@@ -862,9 +861,6 @@ public class SimpleMcpServerV2
         
         _logger.LogInformation("Executing function: {FunctionUrl}", functionUrl);
         
-        using (var timer = new ODataMcpDebugger.PerformanceTimer($"ExecuteFunction: {functionUrl}"))
-        {
-            return await _odataService!.ExecuteFunctionAsync(functionUrl);
-        }
+        return await _odataService!.ExecuteFunctionAsync(functionUrl);
     }
 }
