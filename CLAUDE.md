@@ -8,6 +8,42 @@ OData MCP Bridge for .NET - A cross-platform implementation that creates a bridg
 
 ## Build Commands
 
+### Automated Build System (Makefile) - PREFERRED METHOD
+
+The project includes a comprehensive Makefile for automated builds across all platforms:
+
+```bash
+# Essential commands
+make build           # Build for current platform (Release mode)
+make test            # Run all tests with verbose output
+make clean           # Clean all build artifacts
+
+# Cross-platform publishing
+make publish-all     # Build for ALL platforms (Windows, Linux, macOS)
+make publish-windows # Build Windows x64 binary
+make publish-linux   # Build Linux x64 binary  
+make publish-macos   # Build macOS x64 and ARM64 binaries
+
+# Release management
+make dist            # Create distribution packages (.zip/.tar.gz) for all platforms
+make release         # Clean build and create full release with all packages
+make install-local   # Install binary to project root for development
+
+# Development helpers
+make dev             # Build and show help
+make run-northwind   # Test with Northwind OData service
+make restore         # Restore NuGet packages
+make help            # Show all available targets
+```
+
+**Note**: The Makefile automatically:
+- Sets VERSION=1.0.0 (update in Makefile for new releases)
+- Creates self-contained single-file executables
+- Packages binaries with config files (appsettings.json, hints.json)
+- Handles the ARM64 macOS bug by building Debug for ARM64
+
+### Manual .NET CLI Commands
+
 ```bash
 # Build for current platform
 dotnet build --configuration Debug
@@ -24,21 +60,47 @@ dotnet test --filter "FullyQualifiedName~TestClassName.TestMethodName"
 dotnet run --project src/ODataMcp -- --help
 dotnet run --project src/ODataMcp -- --service https://services.odata.org/V2/OData/OData.svc/
 
-# Publish for different platforms
-dotnet publish src/ODataMcp -c Release -r win-x64 --self-contained
-dotnet publish src/ODataMcp -c Release -r linux-x64 --self-contained
-dotnet publish src/ODataMcp -c Release -r osx-x64 --self-contained
-
-# Using Makefile (if available)
-make build           # Build for current platform
-make test            # Run all tests
-make publish-all     # Publish for all platforms
-make clean           # Clean build artifacts
+# Manual publish for specific platforms
+dotnet publish src/ODataMcp -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/ODataMcp -c Release -r win-x86 --self-contained -p:PublishSingleFile=true
+dotnet publish src/ODataMcp -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/ODataMcp -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true
 ```
 
 ## Important Note on ARM64 macOS
 
 There is a known .NET runtime bug on ARM64 macOS with Release builds. Use x64 builds on Apple Silicon (they run via Rosetta 2) or use Debug builds for ARM64.
+
+## Release Workflow
+
+To create a new release with binaries for all platforms:
+
+```bash
+# 1. Update version in Makefile (line 9)
+VERSION = 0.5.2  # or whatever version
+
+# 2. Build all platforms and create distribution packages
+make release
+
+# 3. Create git tag
+git tag -a v0.5.2 -m "Release v0.5.2 - Your release message"
+git push origin v0.5.2
+
+# 4. Create GitHub release with gh CLI
+gh release create v0.5.2 \
+  --title "Release v0.5.2 - Title" \
+  --notes "Release notes here" \
+  bin/dist/*.{zip,tar.gz}
+
+# 5. Update README.md with new version links
+# Update the download links in the Installation section
+```
+
+The `make release` command will:
+1. Clean all previous builds
+2. Build for all platforms (Windows x64, Linux x64, macOS x64, macOS ARM64 Debug)
+3. Create compressed archives in `bin/dist/`
+4. Install local binary for testing
 
 ## Architecture Overview
 
