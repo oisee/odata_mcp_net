@@ -46,7 +46,11 @@ class Program
             MaxItems = options.MaxItems,
             PaginationHints = options.PaginationHints,
             LegacyDates = options.NoLegacyDates ? false : options.LegacyDates,
-            VerboseErrors = options.VerboseErrors
+            VerboseErrors = options.VerboseErrors,
+            EnableOps = options.EnableOps,
+            DisableOps = options.DisableOps,
+            HintsFile = options.HintsFile,
+            Hint = options.Hint
         };
 
         // Validate configuration
@@ -82,6 +86,7 @@ class Program
 
         // Add configuration and services
         services.AddSingleton(config);
+        services.AddSingleton<ODataMcp.Core.Utils.IHintManager, ODataMcp.Core.Utils.HintManager>();
         services.AddSingleton<SimpleMcpServerV2>();
         services.AddSingleton<SimpleStdioTransport>();
 
@@ -150,10 +155,16 @@ class Program
             var initResult = await server.InitializeAsync();
             var toolsResult = await server.ListToolsAsync();
             
-            // Extract data from the dynamic results
-            dynamic init = initResult;
-            dynamic toolsObj = toolsResult;
-            var tools = toolsObj.tools as IEnumerable<dynamic>;
+            // Extract data from the results using reflection or JsonSerializer
+            var initJson = System.Text.Json.JsonSerializer.Serialize(initResult);
+            var initDoc = System.Text.Json.JsonDocument.Parse(initJson);
+            var initRoot = initDoc.RootElement;
+            
+            var toolsJson = System.Text.Json.JsonSerializer.Serialize(toolsResult);
+            var toolsDoc = System.Text.Json.JsonDocument.Parse(toolsJson);
+            var toolsRoot = toolsDoc.RootElement;
+            
+            var tools = toolsRoot.GetProperty("tools").EnumerateArray().ToList();
             
             Console.WriteLine(new string('=', 80));
             Console.WriteLine("🔍 OData MCP Bridge Trace Information");
@@ -161,9 +172,9 @@ class Program
             Console.WriteLine();
             
             Console.WriteLine($"Service URL: {config.ServiceUrl}");
-            Console.WriteLine($"Protocol Version: {init.protocolVersion}");
-            Console.WriteLine($"Server: {init.serverInfo.name} v{init.serverInfo.version}");
-            Console.WriteLine($"Total Tools: {tools?.Count() ?? 0}");
+            Console.WriteLine($"Protocol Version: {initRoot.GetProperty("protocolVersion").GetString()}");
+            Console.WriteLine($"Server: {initRoot.GetProperty("serverInfo").GetProperty("name").GetString()} v{initRoot.GetProperty("serverInfo").GetProperty("version").GetString()}");
+            Console.WriteLine($"Total Tools: {tools.Count}");
             Console.WriteLine();
             
             Console.WriteLine("Configuration:");
@@ -171,14 +182,20 @@ class Program
             Console.WriteLine($"  Tool Shrink: {config.ToolShrink}");
             Console.WriteLine($"  Max Items: {config.MaxItems}");
             Console.WriteLine($"  Entities Filter: {string.Join(", ", config.Entities ?? new List<string> { "*" })}");
+            if (!string.IsNullOrEmpty(config.EnableOps))
+                Console.WriteLine($"  Enabled Operations: {config.EnableOps}");
+            if (!string.IsNullOrEmpty(config.DisableOps))
+                Console.WriteLine($"  Disabled Operations: {config.DisableOps}");
             Console.WriteLine();
             
             Console.WriteLine("Generated Tools:");
-            if (tools != null)
+            if (tools.Count > 0)
             {
-                foreach (dynamic tool in tools.OrderBy(t => (string)t.name))
+                foreach (var tool in tools.OrderBy(t => t.GetProperty("name").GetString()))
                 {
-                    Console.WriteLine($"  - {tool.name}: {tool.description}");
+                    var name = tool.GetProperty("name").GetString();
+                    var description = tool.GetProperty("description").GetString();
+                    Console.WriteLine($"  - {name}: {description}");
                 }
             }
             

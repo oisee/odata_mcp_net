@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OData.Edm;
 using ODataMcp.Core.Configuration;
 using ODataMcp.Core.Services;
+using ODataMcp.Core.Utils;
 
 namespace ODataMcp.Core.Mcp;
 
@@ -16,15 +17,17 @@ public class SimpleMcpServerV2
     private readonly HttpClient _httpClient;
     private readonly ILogger<SimpleMcpServerV2> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IHintManager _hintManager;
     private SimpleODataService? _odataService;
     private IEdmModel? _model;
 
-    public SimpleMcpServerV2(ODataBridgeConfiguration config, HttpClient httpClient, ILogger<SimpleMcpServerV2> logger, IServiceProvider serviceProvider)
+    public SimpleMcpServerV2(ODataBridgeConfiguration config, HttpClient httpClient, ILogger<SimpleMcpServerV2> logger, IServiceProvider serviceProvider, IHintManager hintManager)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _hintManager = hintManager ?? throw new ArgumentNullException(nameof(hintManager));
     }
 
     public async Task<object> InitializeAsync(CancellationToken cancellationToken = default)
@@ -33,6 +36,13 @@ public class SimpleMcpServerV2
 
         try
         {
+            // Load hints
+            await _hintManager.LoadFromFileAsync(_config.HintsFile);
+            if (!string.IsNullOrEmpty(_config.Hint))
+            {
+                _hintManager.SetCliHint(_config.Hint);
+            }
+
             // Initialize OData service
             var odataLogger = _serviceProvider.GetRequiredService<ILogger<SimpleODataService>>();
             _odataService = new SimpleODataService(
@@ -105,31 +115,49 @@ public class SimpleMcpServerV2
                 var shortName = _config.ToolShrink ? ShortenName(entitySet.Name) : entitySet.Name;
                 var entityType = entitySet.EntityType;
 
-                // Filter tool
-                tools.Add(CreateFilterTool(entitySet, shortName, suffix));
+                // Filter tool (F)
+                if (IsOperationEnabled('F'))
+                {
+                    tools.Add(CreateFilterTool(entitySet, shortName, suffix));
+                }
 
-                // Get tool
-                tools.Add(CreateGetTool(entitySet, entityType, shortName, suffix));
+                // Get tool (G)
+                if (IsOperationEnabled('G'))
+                {
+                    tools.Add(CreateGetTool(entitySet, entityType, shortName, suffix));
+                }
 
-                // Count tool
-                tools.Add(CreateCountTool(entitySet, shortName, suffix));
+                // Count tool (part of Filter)
+                if (IsOperationEnabled('F'))
+                {
+                    tools.Add(CreateCountTool(entitySet, shortName, suffix));
+                }
 
-                // Search tool (only if entity has string properties)
-                if (HasStringProperties(entityType))
+                // Search tool (S) - only if entity has string properties
+                if (IsOperationEnabled('S') && HasStringProperties(entityType))
                 {
                     tools.Add(CreateSearchTool(entitySet, shortName, suffix));
                 }
 
                 if (!_config.ReadOnly)
                 {
-                    // Create tool
-                    tools.Add(CreateCreateTool(entitySet, entityType, shortName, suffix));
+                    // Create tool (C)
+                    if (IsOperationEnabled('C'))
+                    {
+                        tools.Add(CreateCreateTool(entitySet, entityType, shortName, suffix));
+                    }
 
-                    // Update tool
-                    tools.Add(CreateUpdateTool(entitySet, entityType, shortName, suffix));
+                    // Update tool (U)
+                    if (IsOperationEnabled('U'))
+                    {
+                        tools.Add(CreateUpdateTool(entitySet, entityType, shortName, suffix));
+                    }
 
-                    // Delete tool
-                    tools.Add(CreateDeleteTool(entitySet, entityType, shortName, suffix));
+                    // Delete tool (D)
+                    if (IsOperationEnabled('D'))
+                    {
+                        tools.Add(CreateDeleteTool(entitySet, entityType, shortName, suffix));
+                    }
                 }
             }
             
@@ -144,8 +172,17 @@ public class SimpleMcpServerV2
                 if (element.ContainerElementKind == EdmContainerElementKind.FunctionImport && 
                     element is IEdmFunctionImport functionImport)
                 {
-                    _logger.LogInformation("Adding function import tool: {Name}", functionImport.Name);
-                    tools.Add(CreateFunctionTool(functionImport, suffix));
+                    // Function imports are actions (A)
+                    if (!_config.ReadOnly && !_config.ReadOnlyButFunctions && IsOperationEnabled('A'))
+                    {
+                        _logger.LogInformation("Adding function import tool: {Name}", functionImport.Name);
+                        tools.Add(CreateFunctionTool(functionImport, suffix));
+                    }
+                    else if (_config.ReadOnlyButFunctions && IsOperationEnabled('A'))
+                    {
+                        _logger.LogInformation("Adding function import tool (read-only-but-functions): {Name}", functionImport.Name);
+                        tools.Add(CreateFunctionTool(functionImport, suffix));
+                    }
                 }
             }
         }
@@ -255,12 +292,42 @@ public class SimpleMcpServerV2
             }
         }
 
-        return Task.FromResult<object>(new
+        // Get hints for this service
+        var hints = _hintManager.GetHintsForService(_config.ServiceUrl);
+        
+        var result = new Dictionary<string, object>
         {
-            serviceUrl = _config.ServiceUrl,
-            version = _model.GetEdmVersion()?.ToString() ?? "Unknown",
-            entitySets = entitySets
-        });
+            ["serviceUrl"] = _config.ServiceUrl,
+            ["version"] = _model.GetEdmVersion()?.ToString() ?? "Unknown",
+            ["entitySets"] = entitySets
+        };
+        
+        // Add hints if available
+        if (hints != null)
+        {
+            if (!string.IsNullOrEmpty(hints.ServiceType))
+                result["serviceType"] = hints.ServiceType;
+            
+            if (!string.IsNullOrEmpty(hints.Notes))
+                result["notes"] = hints.Notes;
+            
+            if (hints.KnownIssues?.Any() == true)
+                result["knownIssues"] = hints.KnownIssues;
+            
+            if (hints.Workarounds?.Any() == true)
+                result["workarounds"] = hints.Workarounds;
+            
+            if (hints.FieldHints != null)
+                result["fieldHints"] = hints.FieldHints;
+            
+            if (hints.Examples?.Any() == true)
+                result["examples"] = hints.Examples;
+            
+            if (!string.IsNullOrEmpty(hints.HintSource))
+                result["hintSource"] = hints.HintSource;
+        }
+        
+        return Task.FromResult<object>(result);
     }
 
     private async Task<object> ExecuteFilterAsync(string entityName, JsonElement args)
@@ -862,5 +929,35 @@ public class SimpleMcpServerV2
         _logger.LogInformation("Executing function: {FunctionUrl}", functionUrl);
         
         return await _odataService!.ExecuteFunctionAsync(functionUrl);
+    }
+
+    private bool IsOperationEnabled(char operation)
+    {
+        // If EnableOps is specified, only those operations are allowed
+        if (!string.IsNullOrEmpty(_config.EnableOps))
+        {
+            var enabledOps = _config.EnableOps.ToUpperInvariant();
+            // Handle 'R' which expands to SFG (Search, Filter, Get)
+            if (enabledOps.Contains('R'))
+            {
+                enabledOps += "SFG";
+            }
+            return enabledOps.Contains(char.ToUpperInvariant(operation));
+        }
+        
+        // If DisableOps is specified, those operations are blocked
+        if (!string.IsNullOrEmpty(_config.DisableOps))
+        {
+            var disabledOps = _config.DisableOps.ToUpperInvariant();
+            // Handle 'R' which expands to SFG (Search, Filter, Get)
+            if (disabledOps.Contains('R'))
+            {
+                disabledOps += "SFG";
+            }
+            return !disabledOps.Contains(char.ToUpperInvariant(operation));
+        }
+        
+        // By default, all operations are enabled
+        return true;
     }
 }

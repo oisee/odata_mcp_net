@@ -89,4 +89,24 @@ public class ODataBridgeConfiguration
     /// Enable verbose error messages
     /// </summary>
     public bool VerboseErrors { get; set; }
+
+    /// <summary>
+    /// Operations to enable (C=create, S=search, F=filter, G=get, U=update, D=delete, A=action)
+    /// </summary>
+    public string? EnableOps { get; set; }
+
+    /// <summary>
+    /// Operations to disable (C=create, S=search, F=filter, G=get, U=update, D=delete, A=action)
+    /// </summary>
+    public string? DisableOps { get; set; }
+
+    /// <summary>
+    /// Path to hints file
+    /// </summary>
+    public string? HintsFile { get; set; }
+
+    /// <summary>
+    /// Direct hint to inject
+    /// </summary>
+    public string? Hint { get; set; }
 }
