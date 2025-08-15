@@ -2,7 +2,7 @@
 
 A .NET implementation of the OData to Model Context Protocol (MCP) bridge, allowing AI assistants like Claude to interact with OData services through a standardized interface.
 
-This is a .NET 8 port of the [Python](https://github.com/yyyo/odata-mcp) and [Go](https://github.com/yyyo/odata-mcp-go) OData-MCP bridge implementations, providing robust OData support with dynamic tool generation.
+This is a .NET 8 port of the [Python](https://github.com/oisee/odata-mcp) and [Go](https://github.com/oisee/odata-mcp-go) OData-MCP bridge implementations, providing robust OData support with dynamic tool generation.
 
 ## Features
 
@@ -416,8 +416,8 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## Acknowledgments
 
-- Original [Python implementation](https://github.com/yyyo/odata-mcp) by yyyo
-- [Go implementation](https://github.com/yyyo/odata-mcp-go) reference
+- Original [Python implementation](https://github.com/oisee/odata-mcp) by oisee (Alice V.)
+- [Go implementation](https://github.com/oisee/odata-mcp-go) reference
 - Microsoft for the OData libraries and .NET platform
 - Anthropic for the Model Context Protocol specification
 
