@@ -2,7 +2,7 @@
 
 A .NET implementation of the OData to Model Context Protocol (MCP) bridge, allowing AI assistants like Claude to interact with OData services through a standardized interface.
 
-This is a .NET 8 port of the [Python](https://github.com/oisee/odata-mcp) and [Go](https://github.com/oisee/odata-mcp-go) OData-MCP bridge implementations, providing robust OData support with dynamic tool generation.
+This is a .NET 8 port of the [Python](https://github.com/oisee/odata_mcp) and [Go](https://github.com/oisee/odata_mcp_go) odata_mcp bridge implementations, providing robust OData support with dynamic tool generation.
 
 ## Features
 
@@ -42,14 +42,14 @@ This is a .NET 8 port of the [Python](https://github.com/oisee/odata-mcp) and [G
 
 Download the appropriate binary for your platform from the [latest release](https://github.com/oisee/odata_mcp_net/releases/latest):
 
-- **Windows x64**: [odata-mcp-v0.5.1-win-x64.zip](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-win-x64.zip)
-- **Windows x86**: [odata-mcp-v0.5.1-win-x86.zip](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-win-x86.zip)
-- **macOS x64**: [odata-mcp-v0.5.1-osx-x64.tar.gz](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-osx-x64.tar.gz) (recommended for Apple Silicon)
-- **Linux x64**: [odata-mcp-v0.5.1-linux-x64.tar.gz](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata-mcp-v0.5.1-linux-x64.tar.gz)
+- **Windows x64**: [odata_mcp-v0.5.1-win-x64.zip](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata_mcp-v0.5.1-win-x64.zip)
+- **Windows x86**: [odata_mcp-v0.5.1-win-x86.zip](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata_mcp-v0.5.1-win-x86.zip)
+- **macOS x64**: [odata_mcp-v0.5.1-osx-x64.tar.gz](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata_mcp-v0.5.1-osx-x64.tar.gz) (recommended for Apple Silicon)
+- **Linux x64**: [odata_mcp-v0.5.1-linux-x64.tar.gz](https://github.com/oisee/odata_mcp_net/releases/download/v0.5.1/odata_mcp-v0.5.1-linux-x64.tar.gz)
 
 Extract and place the executable in your preferred location:
-- **Windows**: Extract the .zip and use `odata-mcp.exe`
-- **macOS/Linux**: Extract the .tar.gz and make executable: `chmod +x odata-mcp`
+- **Windows**: Extract the .zip and use `odata_mcp.exe`
+- **macOS/Linux**: Extract the .tar.gz and make executable: `chmod +x odata_mcp`
 
 > **Note**: Currently, use Debug builds for Claude Desktop integration. See [Known Issues](#known-issues).
 
@@ -80,14 +80,14 @@ make publish-all
 
 ```bash
 # Using positional argument
-./odata-mcp https://services.odata.org/V2/OData/OData.svc/
+./odata_mcp https://services.odata.org/V2/OData/OData.svc/
 
 # Using --service flag
-./odata-mcp --service https://services.odata.org/V2/OData/OData.svc/
+./odata_mcp --service https://services.odata.org/V2/OData/OData.svc/
 
 # Using environment variable
 export ODATA_SERVICE_URL=https://services.odata.org/V2/OData/OData.svc/
-./odata-mcp
+./odata_mcp
 ```
 
 ### Claude Desktop Configuration
@@ -105,7 +105,7 @@ Add to your Claude Desktop configuration file:
 {
     "mcpServers": {
         "odata-demo": {
-            "command": "/path/to/odata_mcp_net/src/ODataMcp/bin/Debug/net8.0/odata-mcp",
+            "command": "/path/to/odata_mcp_net/src/ODataMcp/bin/Debug/net8.0/odata_mcp",
             "args": [
                 "--service",
                 "https://services.odata.org/V2/OData/OData.svc/",
@@ -123,7 +123,7 @@ Add to your Claude Desktop configuration file:
 {
     "mcpServers": {
         "my-company-odata": {
-            "command": "/path/to/odata-mcp",
+            "command": "/path/to/odata_mcp",
             "args": [
                 "--service",
                 "https://api.company.com/odata/",
@@ -145,7 +145,7 @@ Add to your Claude Desktop configuration file:
 {
     "mcpServers": {
         "sap-odata": {
-            "command": "/path/to/odata-mcp",
+            "command": "/path/to/odata_mcp",
             "args": [
                 "--service",
                 "https://sap-system.com/sap/opu/odata/sap/MY_SERVICE/",
@@ -166,7 +166,7 @@ Add to your Claude Desktop configuration file:
 {
     "mcpServers": {
         "production-readonly": {
-            "command": "/path/to/odata-mcp",
+            "command": "/path/to/odata_mcp",
             "args": [
                 "--service",
                 "https://production.company.com/odata/",
@@ -184,12 +184,12 @@ Add to your Claude Desktop configuration file:
 #### Basic Authentication
 ```bash
 # Command line
-./odata-mcp --user admin --password secret https://my-service.com/odata/
+./odata_mcp --user admin --password secret https://my-service.com/odata/
 
 # Environment variables (preferred for security)
 export ODATA_USERNAME=admin
 export ODATA_PASSWORD=secret
-./odata-mcp https://my-service.com/odata/
+./odata_mcp https://my-service.com/odata/
 ```
 
 #### CSRF Token Support (SAP Services)
@@ -247,7 +247,7 @@ Additionally:
 {
     "mcpServers": {
         "odata-v2-demo": {
-            "command": "/path/to/odata-mcp",
+            "command": "/path/to/odata_mcp",
             "args": [
                 "--service", "https://services.odata.org/V2/OData/OData.svc/",
                 "--tool-shrink",
@@ -263,7 +263,7 @@ Additionally:
 {
     "mcpServers": {
         "odata-v4-demo": {
-            "command": "/path/to/odata-mcp",
+            "command": "/path/to/odata_mcp",
             "args": [
                 "--service", "https://services.odata.org/V4/OData/OData.svc/",
                 "--tool-shrink",
@@ -341,13 +341,13 @@ make dist
 
 1. **Test with public service first:**
    ```bash
-   ./odata-mcp --service https://services.odata.org/V2/OData/OData.svc/ --trace
+   ./odata_mcp --service https://services.odata.org/V2/OData/OData.svc/ --trace
    ```
 
 2. **Verify tools are generated:**
    ```bash
    echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}' | \
-   ./odata-mcp --service https://services.odata.org/V2/OData/OData.svc/ | \
+   ./odata_mcp --service https://services.odata.org/V2/OData/OData.svc/ | \
    jq '.result.tools[].name'
    ```
 
@@ -369,7 +369,7 @@ We've discovered a .NET runtime bug specific to ARM64 (Apple Silicon) macOS wher
 dotnet publish src/ODataMcp -c Release -r osx-x64 --self-contained -o publish-x64
 
 # Use in Claude Desktop config:
-"command": "/path/to/odata_mcp_net/publish-x64/odata-mcp"
+"command": "/path/to/odata_mcp_net/publish-x64/odata_mcp"
 
 # For Intel Macs or other platforms - regular Release works fine
 dotnet build --configuration Release
@@ -416,8 +416,8 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## Acknowledgments
 
-- Original [Python implementation](https://github.com/oisee/odata-mcp) by oisee (Alice V.)
-- [Go implementation](https://github.com/oisee/odata-mcp-go) reference
+- Original [Python implementation](https://github.com/oisee/odata_mcp) by oisee (Alice V.)
+- [Go implementation](https://github.com/oisee/odata_mcp_go) reference
 - Microsoft for the OData libraries and .NET platform
 - Anthropic for the Model Context Protocol specification
 
